@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lost and Found Registry</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Lost and Found Registry</h1>
+      <p class="muted">Ganache · Solidity · web3.py</p>
+    </div>
+    <span id="network-badge" class="badge">Connecting…</span>
+  </header>
+
+  <main class="layout">
+    <section class="card" id="wallet">
+      <h2>1. Wallet (Ganache account)</h2>
+      <label for="account-select">Account</label>
+      <select id="account-select"></select>
+      <button id="connect-btn" type="button">Connect account</button>
+      <dl class="facts">
+        <dt>Connected</dt><dd id="connected-account">Not connected</dd>
+        <dt>Balance</dt><dd id="connected-balance">–</dd>
+        <dt>Chain ID</dt><dd id="chain-id">–</dd>
+        <dt>Block</dt><dd id="block-number">–</dd>
+        <dt>Contract</dt><dd id="contract-address" class="mono">–</dd>
+        <dt>Items / Claims</dt><dd id="counts">–</dd>
+      </dl>
+    </section>
+
+    <section class="card" id="register">
+      <h2>2. Register a found item</h2>
+      <form id="register-form">
+        <label for="item-name">Item name</label>
+        <input id="item-name" maxlength="64" placeholder="Black wallet" required>
+        <label for="item-description">Description (where/when found)</label>
+        <textarea id="item-description" maxlength="280" rows="3" placeholder="Found at library, 2nd floor, 17 Nov" required></textarea>
+        <button type="submit">Register item</button>
+      </form>
+    </section>
+
+    <section class="card" id="tx-status">
+      <h2>Transaction status</h2>
+      <div id="tx-output" class="tx idle">No transaction yet.</div>
+    </section>
+
+    <section class="card wide" id="items">
+      <div class="section-head">
+        <h2>3. Items &amp; claims</h2>
+        <button id="refresh-btn" type="button" class="secondary">Refresh</button>
+      </div>
+      <p class="muted">Rules are enforced by the contract: only the finder can approve, and returned items reject new claims.
+        Buttons stay enabled so you can see the contract reject invalid actions.</p>
+      <div id="item-list" class="item-list"></div>
+    </section>
+
+    <section class="card wide" id="events">
+      <h2>Contract events</h2>
+      <ul id="event-list" class="event-list"></ul>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+# One-command local stack: Ganache (test chain) + deploy + web app.
+#   docker compose up --build                     -> http://127.0.0.1:5000
+#   docker compose run --rm app python -m pytest -v
+#   docker compose exec app python demo_workflow.py   (while `up` is running)
+services:
+  ganache:
+    image: trufflesuite/ganache:v7.9.2
+    command: >
+      --server.host 0.0.0.0 --server.port 7545
+      --chain.chainId 1337 --chain.networkId 5777
+      --wallet.deterministic --wallet.totalAccounts 10 --wallet.defaultBalance 100
+    ports:
+      - "7545:7545"
+
+  app:
+    build: .
+    platform: linux/amd64  # solc 0.8.24 binary from py-solc-x is amd64 only
+    depends_on:
+      - ganache
+    environment:
+      RPC_URL: http://ganache:7545
+    ports:
+      - "5000:5000"
+    # Wait for Ganache, deploy a fresh contract (writes contract-config.json), then serve the UI.
+    command: >
+      sh -c "for i in $$(seq 30); do
+               python -c 'from blockchain_client import connect_web3, rpc_url_from_env; connect_web3(rpc_url_from_env())' 2>/dev/null && break;
+               echo 'waiting for ganache...'; sleep 1;
+             done;
+             python deploy_contract.py && python app.py"
