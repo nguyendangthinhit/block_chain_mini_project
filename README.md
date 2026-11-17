@@ -235,7 +235,18 @@ python -m pytest -v
 | `test_full_workflow_through_api` | whole scenario through the web API, incl. both rejections |
 | `test_rejects_unknown_or_missing_account` | API refuses missing / non-Ganache accounts |
 
-**Results**: _to be filled after running (paste the pytest summary line, e.g. `N passed in Xs`)._
+**Results**: **not run – the development machine cannot run the Python stack.**
+
+- Machine: Windows 11 Home 10.0.26200 with **Smart App Control** enabled.
+- `python -c "from web3 import Web3"` fails with
+  `ImportError: DLL load failed while importing _regex: An Application Control policy has blocked this file.`
+  Smart App Control blocks the native DLLs that web3.py depends on (`regex`, `cytoolz`, `ckzg`, `bitarray`),
+  so `deploy_contract.py`, `app.py`, `demo_workflow.py` and `pytest` cannot start on this machine.
+- Docker is also unavailable as a workaround: WSL is corrupted
+  (`Wsl/CallMsi/Install/REGDB_E_CLASSNOTREG`), so Docker Desktop does not start.
+- Only static checks were done here: all Python files compile (`py_compile`) and `static/app.js` passes `node --check`.
+- To get real results: run section 4 and `python -m pytest -v` on a machine without Smart App Control
+  (or with it turned off), then replace this paragraph with the pytest summary line.
 
 ## 8. Configuration reference
 
