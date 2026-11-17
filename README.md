@@ -4,120 +4,325 @@ Student: Nguyễn Đăng Thịnh – 29210258195
 
 A finder records a found item and its description. A claimant submits a claim. Only the
 finder can approve a claim, which marks the item **Returned**. New claims on returned items are
-rejected. The contract enforces every rule and permission, not only the interface.
+rejected. The smart contract enforces every rule and permission, not only the interface.
 
-## Architecture
+---
+
+## Contents
+
+1. [Architecture](#1-architecture)
+2. [Project structure](#2-project-structure)
+3. [Contract rules](#3-contract-rules)
+4. [Choose how to run](#4-choose-how-to-run)
+5. [Option A – Docker (recommended, one command)](#5-option-a--docker-recommended-one-command)
+6. [Option B – Manual setup (Python + Ganache)](#6-option-b--manual-setup-python--ganache)
+7. [Using the web interface (demo walkthrough)](#7-using-the-web-interface-demo-walkthrough)
+8. [CLI demo](#8-cli-demo)
+9. [Tests](#9-tests)
+10. [Configuration reference](#10-configuration-reference)
+11. [Troubleshooting](#11-troubleshooting)
+12. [Screenshots / demo](#12-screenshots--demo)
+13. [Citations](#13-citations)
+
+---
+
+## 1. Architecture
 
 ```
 Browser (HTML/JS, templates/ + static/)
    │ fetch /api/*
 Flask backend (app.py) ── web3.py (blockchain_client.py, registry_service.py)
    │ JSON-RPC http://127.0.0.1:7545
-Ganache ── LostAndFoundRegistry.sol (contracts/)
+Ganache (local test chain) ── LostAndFoundRegistry.sol (contracts/)
 ```
 
-| File | Purpose |
+- The browser never holds private keys. You pick one of Ganache's **unlocked test accounts**
+  in the UI; the backend sends the transaction from that account through Ganache.
+- Before sending, the backend simulates the call, so a rule violation comes back as the
+  contract's own `require()` message (e.g. `Only finder can approve`).
+- Only Ganache test accounts and test Ether are used. No real funds or real keys.
+
+## 2. Project structure
+
+| File / folder | Purpose |
 |---|---|
-| `contracts/LostAndFoundRegistry.sol` | Smart contract (paste into Remix or compile with `deploy_contract.py`) |
-| `blockchain_client.py` | Course web3.py template: connect to Ganache, load address + ABI from `contract-config.json` |
-| `registry_service.py` | Send transactions, decode revert reasons and events, read items/claims |
-| `app.py`, `templates/`, `static/` | Web interface (account picker, forms, tx status, events) |
-| `deploy_contract.py` | Compile (solc 0.8.24, EVM `paris`) + deploy with web3.py, writes `contract-config.json` |
-| `demo_workflow.py` | CLI demo of the required scenario with 3 accounts |
-| `tests/` | pytest suite (contract rules + web API) against Ganache |
+| `contracts/LostAndFoundRegistry.sol` | Smart contract (Solidity ^0.8.20) |
+| `blockchain_client.py` | Connects to Ganache, loads address + ABI from `contract-config.json` (based on the course web3.py template) |
+| `registry_service.py` | Sends transactions, decodes revert reasons and events, reads items/claims |
+| `app.py` | Flask web server + JSON API used by the UI |
+| `templates/index.html`, `static/app.js`, `static/style.css` | Web interface |
+| `deploy_contract.py` | Compiles (solc 0.8.24, EVM `paris`) and deploys, writes `contract-config.json` |
+| `demo_workflow.py` | Command-line demo of the full scenario with 3 accounts |
+| `tests/` | pytest suite (contract rules + web API) against a running Ganache |
+| `Dockerfile`, `docker-compose.yml` | Docker setup: Ganache + deploy + app in one command |
+| `requirements.txt` | Python dependencies (web3, flask, py-solc-x, pytest) |
 
-### Contract rules
+`contract-config.json` is generated at deploy time and is not committed.
 
-| Function | Who | Rule (revert message) |
+## 3. Contract rules
+
+| Function | Who can call | Rule (revert message) |
 |---|---|---|
-| `registerItem(name, description)` | anyone (becomes finder) | name 1–64 bytes, description 1–280 bytes |
-| `submitClaim(itemId, details)` | anyone except the finder | item exists; `Item already returned`; `Finder cannot claim own item`; `Already claimed this item` |
-| `approveClaim(claimId)` | **finder only** | `Only finder can approve`; `Item already returned`. Approval marks the claim Approved and the item Returned |
+| `registerItem(name, description)` | anyone (caller becomes the **finder**) | name 1–64 bytes (`Item name is required` / `Item name is too long`), description 1–280 bytes |
+| `submitClaim(itemId, details)` | anyone **except the finder** | `Item does not exist`; `Item already returned`; `Finder cannot claim own item`; `Already claimed this item`; details 1–280 bytes |
+| `approveClaim(claimId)` | **finder only** | `Claim does not exist`; `Only finder can approve`; `Item already returned`. Marks the claim *Approved* and the item *Returned* |
+| `getItem`, `getClaim`, `getItemClaimIds`, `itemCount`, `claimCount`, `hasClaimed` | anyone (read-only) | – |
 
 Events: `ItemRegistered`, `ClaimSubmitted`, `ClaimApproved`, `ItemReturned`. The UI shows them in
-the transaction status panel and the event log.
+the **Transaction status** panel and the **Contract events** log.
 
-## Prerequisites
+## 4. Choose how to run
 
-- Python 3.10+ and `pip`
-- Ganache (GUI 2.7+ or CLI `npx ganache`). Test accounts and test Ether only, no real keys or funds.
-- Optional: [Remix IDE](https://remix.ethereum.org) to deploy from the browser
+| | Option A – Docker | Option B – Manual |
+|---|---|---|
+| You install | Docker Desktop / Docker Engine | Python 3.10+, Ganache (GUI or Node.js CLI) |
+| Commands to start | 1 | ~5 |
+| Good when | You just want to run/test quickly | You want Ganache GUI, Remix, or no Docker |
+
+Both options use the same code and the same Ganache settings (port 7545, chain ID 1337).
+
+---
+
+## 5. Option A – Docker (recommended, one command)
+
+### 5.1 Install Docker
+
+- **Windows 10/11**: install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+  It needs WSL 2. If Docker Desktop asks, open PowerShell **as Administrator** and run
+  `wsl --install`, then restart the computer. Check with `wsl --version` and `docker version`.
+- **macOS**: install Docker Desktop (Intel or Apple Silicon both work).
+- **Linux**: install Docker Engine + the Compose plugin (`docker compose version` should work).
+
+Start Docker Desktop and wait until it says *Engine running*.
+
+### 5.2 Get the code
 
 ```bash
+git clone https://github.com/nguyendangthinhit/block_chain_mini_project.git
+cd block_chain_mini_project
+```
+
+### 5.3 Start everything
+
+```bash
+docker compose up --build
+```
+
+What happens:
+1. The `ganache` container starts a local chain on port **7545** (chain ID 1337, 10 accounts × 100 ETH, deterministic).
+2. The `app` container waits for Ganache, runs `deploy_contract.py` (fresh contract every start), then starts Flask.
+3. When you see `Running on http://0.0.0.0:5000`, open **http://127.0.0.1:5000** in your browser.
+
+The first build downloads images, Python packages and the solc 0.8.24 compiler, so it takes a few minutes.
+
+### 5.4 Run the demo and tests (second terminal, same folder)
+
+```bash
+docker compose exec app python demo_workflow.py   # CLI demo on the running stack
+docker compose run --rm app python -m pytest -v   # full test suite
+```
+
+### 5.5 Stop
+
+```bash
+Ctrl+C                 # in the terminal running `up`
+docker compose down    # remove containers (chain data is discarded)
+```
+
+Next `docker compose up` starts with an empty chain and a newly deployed contract.
+
+---
+
+## 6. Option B – Manual setup (Python + Ganache)
+
+### 6.1 Prerequisites
+
+- **Python 3.10 – 3.12** with `pip` (`python --version`)
+- **Ganache**, one of:
+  - Ganache GUI 2.7+ ([download](https://archive.trufflesuite.com/ganache/)), or
+  - Node.js 16+ and the CLI: `npx ganache` (no install needed)
+- Internet on the first deploy (py-solc-x downloads solc 0.8.24 once)
+- Optional: [Remix IDE](https://remix.ethereum.org) if you want to deploy from the browser
+
+### 6.2 Install Python dependencies
+
+```bash
+git clone https://github.com/nguyendangthinhit/block_chain_mini_project.git
+cd block_chain_mini_project
+
 python -m venv .venv
-.venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
+# Windows (PowerShell):  .venv\Scripts\Activate.ps1
+# Windows (cmd):         .venv\Scripts\activate.bat
+# macOS / Linux:         source .venv/bin/activate
+
 pip install -r requirements.txt
+python -c "from web3 import Web3; print('web3 OK')"
 ```
 
-### Quick start with Docker (no local Python/Ganache needed)
-
-Needs Docker Desktop (Windows: WSL 2 enabled) or Docker Engine.
-
-```bash
-docker compose up --build                        # Ganache + deploy + app -> http://127.0.0.1:5000
-docker compose exec app python demo_workflow.py  # CLI demo (in a 2nd terminal while `up` runs)
-docker compose run --rm app python -m pytest -v  # test suite against the Ganache container
-docker compose down                              # stop (chain data is discarded)
-```
-
-Ganache is also published on `http://127.0.0.1:7545`, so Remix can deploy to the same chain.
-Every `up` deploys a fresh contract; the UI picks it up automatically.
-
-## Ganache network settings
+### 6.3 Start Ganache
 
 | Setting | Value |
 |---|---|
-| RPC URL | `http://127.0.0.1:7545` (override with env `RPC_URL`) |
+| RPC URL | `http://127.0.0.1:7545` |
 | Chain ID | `1337` |
 | Network ID | `5777` |
 | Accounts | 10 unlocked test accounts, 100 ETH each |
 
-CLI equivalent: `npx ganache --server.port 7545 --chain.chainId 1337 --chain.networkId 5777 --wallet.deterministic`
+**Ganache GUI**: *New Workspace (Ethereum)* → *Server* tab → host `127.0.0.1`, port `7545`,
+network ID `5777` → *Save Workspace*. (Quickstart also uses port 7545.)
 
-## Deploy
+**Ganache CLI** (keep this terminal open):
 
-**Option A: Remix**
-1. Open `contracts/LostAndFoundRegistry.sol` in Remix.
-2. Solidity compiler: version **0.8.24**, Advanced → EVM version **paris** (newer EVM targets such as cancun do not run on Ganache).
-3. Deploy & Run: Environment **Dev – Ganache Provider** (or *Custom – External Http Provider*) → `http://127.0.0.1:7545` → Deploy.
-4. Create `contract-config.json` next to `app.py`:
+```bash
+npx ganache --server.port 7545 --chain.chainId 1337 --chain.networkId 5777 --wallet.deterministic
+```
+
+### 6.4 Deploy the contract
+
+**Way 1 – script (easiest)**
+
+```bash
+python deploy_contract.py              # deploys from account #0
+python deploy_contract.py --account-index 1   # or from another account
+```
+
+It prints the contract address and writes `contract-config.json` next to `app.py`.
+
+**Way 2 – Remix**
+1. Open [Remix](https://remix.ethereum.org), create `LostAndFoundRegistry.sol`, paste the contents of `contracts/LostAndFoundRegistry.sol`.
+2. *Solidity compiler* tab: version **0.8.24**, *Advanced Configurations* → EVM version **paris** → *Compile*.
+   (Newer EVM targets such as `cancun`/`shanghai` produce opcodes Ganache may not support.)
+3. *Deploy & run transactions* tab: Environment **Dev – Ganache Provider** (or *Custom – External Http Provider*) → `http://127.0.0.1:7545` → *Deploy*.
+4. Copy the deployed address and the ABI (*Solidity compiler* tab → *ABI* button), and create `contract-config.json` next to `app.py`:
    ```json
-   { "rpc_url": "http://127.0.0.1:7545", "contract_address": "0x…from Remix…", "abi": [ …ABI copied from Remix… ] }
+   {
+     "rpc_url": "http://127.0.0.1:7545",
+     "contract_address": "0xYourDeployedAddress",
+     "abi": [ "...paste the ABI array here..." ]
+   }
    ```
 
-**Option B: script**: `python deploy_contract.py` (downloads solc 0.8.24 on first run, deploys from account #0 and writes `contract-config.json`).
-
-Check the connection: `python blockchain_client.py`
-
-## Run
+Check the connection:
 
 ```bash
-python app.py          # open http://127.0.0.1:5000
-python demo_workflow.py  # optional CLI demo
+python blockchain_client.py
+# Connected to Ganache and contract!  Chain ID: 1337 ...
 ```
 
-UI walkthrough (two or more accounts):
-1. Pick account #0 → **Connect account** → register an item (finder).
-2. Connect account #1 → **Submit claim** on the item (owner).
-3. Still as #1, click **Approve** → rejected: `Only finder can approve`.
-4. Connect #0 → **Approve & mark returned** → success, item becomes *Returned*.
-5. Connect #2 → submit a claim on the same item → rejected: `Item already returned`.
-
-## Tests
+### 6.5 Run the web app
 
 ```bash
-# Ganache must be running on RPC_URL
-python -m pytest -v
+python app.py
 ```
 
-Results: _to be filled after running on Ganache._
+Open **http://127.0.0.1:5000**. If you redeploy, just refresh the page; the app reloads
+`contract-config.json` on every request.
 
-## Screenshots / demo
+---
 
-_Add screenshots of the steps above (`docs/` folder) or a short recording link._
+## 7. Using the web interface (demo walkthrough)
 
-## Citations
+The page has: **Wallet** (account picker, connected account, balance, chain ID, block, contract
+address, item/claim counts), **Register a found item**, **Transaction status**, **Items & claims**,
+and **Contract events**.
+
+Buttons are intentionally never disabled by role, so you can show the contract rejecting invalid actions.
+
+| # | Account | Action | Expected result |
+|---|---|---|---|
+| 1 | #0 (finder) | Select `#0` → **Connect account** → fill name + description → **Register item** | ✅ success, tx hash, block, gas, event `ItemRegistered`; item #1 shows **Found** |
+| 2 | #1 (owner) | Connect `#1` → in item #1 type proof of ownership → **Submit claim** | ✅ success, event `ClaimSubmitted`; claim #1 **Pending** |
+| 3 | #1 (owner) | Still #1 → click **Approve & mark returned** on claim #1 | ❌ *Rejected by contract: `Only finder can approve`* (unauthorized action) |
+| 4 | #0 (finder) | Connect `#0` → **Approve & mark returned** | ✅ success, events `ClaimApproved` + `ItemReturned`; item becomes **Returned**, claim **Approved** |
+| 5 | #2 (late claimant) | Connect `#2` → **Submit claim** on item #1 | ❌ *Rejected by contract: `Item already returned`* |
+
+Other rejections you can try: the finder claiming their own item (`Finder cannot claim own item`),
+the same account claiming twice (`Already claimed this item`), an empty name (`Item name is required`).
+
+**Why the rejections happen**: the checks are `require()` statements inside the contract, so the
+transaction reverts on-chain no matter which client sends it. The interface only displays the
+revert reason; it does not decide the rule.
+
+## 8. CLI demo
+
+`demo_workflow.py` runs the same 5 steps with accounts #0, #1, #2 and prints each transaction:
+
+```bash
+python demo_workflow.py                         # manual setup
+docker compose exec app python demo_workflow.py # Docker
+```
+
+Expected result of each step (shortened; real output also shows sender, tx hash, block and gas):
+
+```
+== 1. Finder registers a found item           -> SUCCESS ... event ItemRegistered
+== 2. Owner submits a claim on item #1         -> SUCCESS ... event ClaimSubmitted
+== 3. Owner tries to approve own claim #1      -> REJECTED by contract: Only finder can approve
+== 4. Finder approves claim #1 ...             -> SUCCESS ... events ClaimApproved, ItemReturned
+== 5. Another account claims returned item #1  -> REJECTED by contract: Item already returned
+Final state: item #1 'Black wallet' is Returned (approved claim #1)
+```
+
+## 9. Tests
+
+Ganache must be running on `RPC_URL` (default `http://127.0.0.1:7545`). Each test deploys its own
+fresh contract, so tests do not touch the contract used by the UI.
+
+```bash
+python -m pytest -v                               # manual setup
+docker compose run --rm app python -m pytest -v   # Docker
+```
+
+| Test | What it checks |
+|---|---|
+| `test_register_item_stores_data_and_emits_event` | item stored with finder/status, `ItemRegistered` emitted |
+| `test_register_item_validates_input` | empty / too long name and description rejected |
+| `test_submit_claim_by_another_account` | claim stored, `ClaimSubmitted` emitted |
+| `test_finder_cannot_claim_own_item` | finder blocked from claiming |
+| `test_duplicate_claim_and_missing_item_rejected` | double claim and unknown item rejected |
+| `test_only_finder_can_approve` | non-finder approval rejected (address-based permission) |
+| `test_finder_approves_and_item_is_returned` | approval marks claim Approved + item Returned, both events |
+| `test_later_claims_on_returned_item_are_rejected` | `Item already returned` |
+| `test_list_items_and_events` | read helpers used by the UI |
+| `test_status_and_index` | API status + page loads |
+| `test_full_workflow_through_api` | whole scenario through the web API, incl. both rejections |
+| `test_rejects_unknown_or_missing_account` | API refuses missing / non-Ganache accounts |
+
+**Results**: _to be filled after running (paste the pytest summary line, e.g. `N passed in Xs`)._
+
+## 10. Configuration reference
+
+| Environment variable | Default | Used for |
+|---|---|---|
+| `RPC_URL` | `http://127.0.0.1:7545` | Ganache RPC (overrides `rpc_url` in `contract-config.json`) |
+| `CONTRACT_CONFIG` | `./contract-config.json` | Path to address + ABI file |
+| `HOST` | `127.0.0.1` | Flask bind address (`0.0.0.0` in Docker) |
+| `PORT` | `5000` | Flask port |
+
+Example (PowerShell): `$env:RPC_URL="http://127.0.0.1:8545"; python app.py`
+Example (bash): `RPC_URL=http://127.0.0.1:8545 python app.py`
+
+## 11. Troubleshooting
+
+| Problem | Cause / fix |
+|---|---|
+| `Cannot connect to Ganache at http://127.0.0.1:7545` | Ganache is not running or uses another port. Start it on 7545 or set `RPC_URL`. |
+| `Missing contract-config.json` | Deploy first (`python deploy_contract.py` or Remix, section 6.4). |
+| `No contract code at this address` | Ganache was restarted (new chain) or the address is from another network. Redeploy. |
+| Remix deploy fails / `invalid opcode` | Set EVM version to **paris** in Remix compiler settings. |
+| `Account is not an unlocked Ganache account` | The UI remembers an account from an old Ganache session. Pick an account again and click **Connect account**. |
+| Port 5000 or 7545 already in use | Stop the other program, or change it: `PORT=5050 python app.py`; for Docker edit `ports:` in `docker-compose.yml` (e.g. `"5050:5000"`). On macOS, AirPlay Receiver uses port 5000. |
+| Windows: `DLL load failed ... An Application Control policy has blocked this file` | Windows **Smart App Control** blocks web3.py's native modules. Use Docker (Option A), another machine, or turn off Smart App Control (Windows Security → App & browser control). |
+| Windows: `WSL installation appears to be corrupted` / `REGDB_E_CLASSNOTREG` | Docker Desktop needs a working WSL. As Administrator: `wsl --update` (or reinstall "Windows Subsystem for Linux" from Microsoft Store), reboot. Otherwise use Option B. |
+| `solcx` cannot download the compiler | First deploy needs internet. Or deploy with Remix instead. |
+| `pip install` fails building packages | Use Python 3.10–3.12 (64-bit) and upgrade pip: `python -m pip install --upgrade pip`. |
+
+## 12. Screenshots / demo
+
+_Add screenshots of steps 1–5 from section 7 (e.g. a `docs/` folder) or a short recording link here._
+
+## 13. Citations
 
 - web3.py connection template provided by the course (`blockchain_client.py` is based on it).
-- Libraries: web3.py, Flask, py-solc-x, pytest.
-- AI assistance: Claude Code (Anthropic) helped draft the code, tests and README. I reviewed and ran them.
+- Libraries / tools: web3.py, Flask, py-solc-x, pytest, Ganache, Docker.
+- AI assistance: Claude Code (Anthropic) helped draft the code, tests, Docker setup and README. I reviewed and ran them.
