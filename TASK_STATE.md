@@ -14,9 +14,9 @@ backend Python web3.py (Flask) + UI HTML/JS, tự đủ trong `mini_project/`, x
 - [ ] Chạy pytest / app / demo bằng web3.py trên Ganache (BỊ CHẶN, xem dưới)
 - [ ] Ảnh chụp màn hình + điền kết quả test vào README
 - [x] Code review tĩnh: không có lỗi chặn; đã sửa thông báo tx revert, lỗi 500/400/405, account cũ trong UI, thứ tự event, thêm test giới hạn độ dài
-- [x] Thêm `Dockerfile`, `docker-compose.yml` (Ganache + deploy + app một lệnh), mục Docker trong README (2026-11-17, chưa chạy thử vì máy này không có Docker)
+- [x] Đã bỏ Docker (2026-11-17): user xác nhận không cần, chỉ chạy bằng Python + Ganache có sẵn. README viết lại chi tiết (setup, demo, test, xử lý lỗi)
 - [x] Repo riêng: `git init` trong `mini_project/`, push lên https://github.com/nguyendangthinhit/block_chain_mini_project (`main`)
-- [ ] Trên máy khác: `docker compose up --build`, `docker compose run --rm app python -m pytest -v`, chụp màn hình, điền kết quả test vào README
+- [ ] Trên máy khác: `pip install -r requirements.txt`, `python deploy_contract.py`, `python app.py`, `python -m pytest -v`, chụp màn hình, điền kết quả test vào README
 - [ ] Chờ user chạy lệnh cài `requirements.txt` + kiểm tra `from web3 import Web3` sau khi gỡ chặn
 
 ## Blocker

@@ -13,16 +13,14 @@ rejected. The smart contract enforces every rule and permission, not only the in
 1. [Architecture](#1-architecture)
 2. [Project structure](#2-project-structure)
 3. [Contract rules](#3-contract-rules)
-4. [Choose how to run](#4-choose-how-to-run)
-5. [Option A – Docker (recommended, one command)](#5-option-a--docker-recommended-one-command)
-6. [Option B – Manual setup (Python + Ganache)](#6-option-b--manual-setup-python--ganache)
-7. [Using the web interface (demo walkthrough)](#7-using-the-web-interface-demo-walkthrough)
-8. [CLI demo](#8-cli-demo)
-9. [Tests](#9-tests)
-10. [Configuration reference](#10-configuration-reference)
-11. [Troubleshooting](#11-troubleshooting)
-12. [Screenshots / demo](#12-screenshots--demo)
-13. [Citations](#13-citations)
+4. [Setup and run (Python + Ganache)](#4-setup-and-run-python--ganache)
+5. [Using the web interface (demo walkthrough)](#5-using-the-web-interface-demo-walkthrough)
+6. [CLI demo](#6-cli-demo)
+7. [Tests](#7-tests)
+8. [Configuration reference](#8-configuration-reference)
+9. [Troubleshooting](#9-troubleshooting)
+10. [Screenshots / demo](#10-screenshots--demo)
+11. [Citations](#11-citations)
 
 ---
 
@@ -54,7 +52,6 @@ Ganache (local test chain) ── LostAndFoundRegistry.sol (contracts/)
 | `deploy_contract.py` | Compiles (solc 0.8.24, EVM `paris`) and deploys, writes `contract-config.json` |
 | `demo_workflow.py` | Command-line demo of the full scenario with 3 accounts |
 | `tests/` | pytest suite (contract rules + web API) against a running Ganache |
-| `Dockerfile`, `docker-compose.yml` | Docker setup: Ganache + deploy + app in one command |
 | `requirements.txt` | Python dependencies (web3, flask, py-solc-x, pytest) |
 
 `contract-config.json` is generated at deploy time and is not committed.
@@ -71,71 +68,23 @@ Ganache (local test chain) ── LostAndFoundRegistry.sol (contracts/)
 Events: `ItemRegistered`, `ClaimSubmitted`, `ClaimApproved`, `ItemReturned`. The UI shows them in
 the **Transaction status** panel and the **Contract events** log.
 
-## 4. Choose how to run
+## 4. Setup and run (Python + Ganache)
 
-| | Option A – Docker | Option B – Manual |
-|---|---|---|
-| You install | Docker Desktop / Docker Engine | Python 3.10+, Ganache (GUI or Node.js CLI) |
-| Commands to start | 1 | ~5 |
-| Good when | You just want to run/test quickly | You want Ganache GUI, Remix, or no Docker |
-
-Both options use the same code and the same Ganache settings (port 7545, chain ID 1337).
-
----
-
-## 5. Option A – Docker (recommended, one command)
-
-### 5.1 Install Docker
-
-- **Windows 10/11**: install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-  It needs WSL 2. If Docker Desktop asks, open PowerShell **as Administrator** and run
-  `wsl --install`, then restart the computer. Check with `wsl --version` and `docker version`.
-- **macOS**: install Docker Desktop (Intel or Apple Silicon both work).
-- **Linux**: install Docker Engine + the Compose plugin (`docker compose version` should work).
-
-Start Docker Desktop and wait until it says *Engine running*.
-
-### 5.2 Get the code
+**Quick start** (Python and Ganache already installed, Ganache running on port 7545):
 
 ```bash
 git clone https://github.com/nguyendangthinhit/block_chain_mini_project.git
 cd block_chain_mini_project
+python -m venv .venv
+.venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+python deploy_contract.py         # compile + deploy, writes contract-config.json
+python app.py                     # open http://127.0.0.1:5000
 ```
 
-### 5.3 Start everything
+The subsections below explain each step in detail.
 
-```bash
-docker compose up --build
-```
-
-What happens:
-1. The `ganache` container starts a local chain on port **7545** (chain ID 1337, 10 accounts × 100 ETH, deterministic).
-2. The `app` container waits for Ganache, runs `deploy_contract.py` (fresh contract every start), then starts Flask.
-3. When you see `Running on http://0.0.0.0:5000`, open **http://127.0.0.1:5000** in your browser.
-
-The first build downloads images, Python packages and the solc 0.8.24 compiler, so it takes a few minutes.
-
-### 5.4 Run the demo and tests (second terminal, same folder)
-
-```bash
-docker compose exec app python demo_workflow.py   # CLI demo on the running stack
-docker compose run --rm app python -m pytest -v   # full test suite
-```
-
-### 5.5 Stop
-
-```bash
-Ctrl+C                 # in the terminal running `up`
-docker compose down    # remove containers (chain data is discarded)
-```
-
-Next `docker compose up` starts with an empty chain and a newly deployed contract.
-
----
-
-## 6. Option B – Manual setup (Python + Ganache)
-
-### 6.1 Prerequisites
+### 4.1 Prerequisites
 
 - **Python 3.10 – 3.12** with `pip` (`python --version`)
 - **Ganache**, one of:
@@ -144,7 +93,7 @@ Next `docker compose up` starts with an empty chain and a newly deployed contrac
 - Internet on the first deploy (py-solc-x downloads solc 0.8.24 once)
 - Optional: [Remix IDE](https://remix.ethereum.org) if you want to deploy from the browser
 
-### 6.2 Install Python dependencies
+### 4.2 Install Python dependencies
 
 ```bash
 git clone https://github.com/nguyendangthinhit/block_chain_mini_project.git
@@ -159,7 +108,7 @@ pip install -r requirements.txt
 python -c "from web3 import Web3; print('web3 OK')"
 ```
 
-### 6.3 Start Ganache
+### 4.3 Start Ganache
 
 | Setting | Value |
 |---|---|
@@ -177,7 +126,7 @@ network ID `5777` → *Save Workspace*. (Quickstart also uses port 7545.)
 npx ganache --server.port 7545 --chain.chainId 1337 --chain.networkId 5777 --wallet.deterministic
 ```
 
-### 6.4 Deploy the contract
+### 4.4 Deploy the contract
 
 **Way 1 – script (easiest)**
 
@@ -209,7 +158,7 @@ python blockchain_client.py
 # Connected to Ganache and contract!  Chain ID: 1337 ...
 ```
 
-### 6.5 Run the web app
+### 4.5 Run the web app
 
 ```bash
 python app.py
@@ -220,7 +169,7 @@ Open **http://127.0.0.1:5000**. If you redeploy, just refresh the page; the app 
 
 ---
 
-## 7. Using the web interface (demo walkthrough)
+## 5. Using the web interface (demo walkthrough)
 
 The page has: **Wallet** (account picker, connected account, balance, chain ID, block, contract
 address, item/claim counts), **Register a found item**, **Transaction status**, **Items & claims**,
@@ -243,13 +192,12 @@ the same account claiming twice (`Already claimed this item`), an empty name (`I
 transaction reverts on-chain no matter which client sends it. The interface only displays the
 revert reason; it does not decide the rule.
 
-## 8. CLI demo
+## 6. CLI demo
 
 `demo_workflow.py` runs the same 5 steps with accounts #0, #1, #2 and prints each transaction:
 
 ```bash
-python demo_workflow.py                         # manual setup
-docker compose exec app python demo_workflow.py # Docker
+python demo_workflow.py
 ```
 
 Expected result of each step (shortened; real output also shows sender, tx hash, block and gas):
@@ -263,14 +211,13 @@ Expected result of each step (shortened; real output also shows sender, tx hash,
 Final state: item #1 'Black wallet' is Returned (approved claim #1)
 ```
 
-## 9. Tests
+## 7. Tests
 
 Ganache must be running on `RPC_URL` (default `http://127.0.0.1:7545`). Each test deploys its own
 fresh contract, so tests do not touch the contract used by the UI.
 
 ```bash
-python -m pytest -v                               # manual setup
-docker compose run --rm app python -m pytest -v   # Docker
+python -m pytest -v
 ```
 
 | Test | What it checks |
@@ -290,39 +237,38 @@ docker compose run --rm app python -m pytest -v   # Docker
 
 **Results**: _to be filled after running (paste the pytest summary line, e.g. `N passed in Xs`)._
 
-## 10. Configuration reference
+## 8. Configuration reference
 
 | Environment variable | Default | Used for |
 |---|---|---|
 | `RPC_URL` | `http://127.0.0.1:7545` | Ganache RPC (overrides `rpc_url` in `contract-config.json`) |
 | `CONTRACT_CONFIG` | `./contract-config.json` | Path to address + ABI file |
-| `HOST` | `127.0.0.1` | Flask bind address (`0.0.0.0` in Docker) |
+| `HOST` | `127.0.0.1` | Flask bind address |
 | `PORT` | `5000` | Flask port |
 
 Example (PowerShell): `$env:RPC_URL="http://127.0.0.1:8545"; python app.py`
 Example (bash): `RPC_URL=http://127.0.0.1:8545 python app.py`
 
-## 11. Troubleshooting
+## 9. Troubleshooting
 
 | Problem | Cause / fix |
 |---|---|
 | `Cannot connect to Ganache at http://127.0.0.1:7545` | Ganache is not running or uses another port. Start it on 7545 or set `RPC_URL`. |
-| `Missing contract-config.json` | Deploy first (`python deploy_contract.py` or Remix, section 6.4). |
+| `Missing contract-config.json` | Deploy first (`python deploy_contract.py` or Remix, section 4.4). |
 | `No contract code at this address` | Ganache was restarted (new chain) or the address is from another network. Redeploy. |
 | Remix deploy fails / `invalid opcode` | Set EVM version to **paris** in Remix compiler settings. |
 | `Account is not an unlocked Ganache account` | The UI remembers an account from an old Ganache session. Pick an account again and click **Connect account**. |
-| Port 5000 or 7545 already in use | Stop the other program, or change it: `PORT=5050 python app.py`; for Docker edit `ports:` in `docker-compose.yml` (e.g. `"5050:5000"`). On macOS, AirPlay Receiver uses port 5000. |
-| Windows: `DLL load failed ... An Application Control policy has blocked this file` | Windows **Smart App Control** blocks web3.py's native modules. Use Docker (Option A), another machine, or turn off Smart App Control (Windows Security → App & browser control). |
-| Windows: `WSL installation appears to be corrupted` / `REGDB_E_CLASSNOTREG` | Docker Desktop needs a working WSL. As Administrator: `wsl --update` (or reinstall "Windows Subsystem for Linux" from Microsoft Store), reboot. Otherwise use Option B. |
+| Port 5000 or 7545 already in use | Stop the other program, or change it: `PORT=5050 python app.py` (PowerShell: `$env:PORT="5050"; python app.py`). On macOS, AirPlay Receiver uses port 5000. |
+| Windows: `DLL load failed ... An Application Control policy has blocked this file` | Windows **Smart App Control** blocks web3.py's native modules. Use another machine, or turn off Smart App Control (Windows Security → App & browser control). |
 | `solcx` cannot download the compiler | First deploy needs internet. Or deploy with Remix instead. |
 | `pip install` fails building packages | Use Python 3.10–3.12 (64-bit) and upgrade pip: `python -m pip install --upgrade pip`. |
 
-## 12. Screenshots / demo
+## 10. Screenshots / demo
 
-_Add screenshots of steps 1–5 from section 7 (e.g. a `docs/` folder) or a short recording link here._
+_Add screenshots of steps 1–5 from section 5 (e.g. a `docs/` folder) or a short recording link here._
 
-## 13. Citations
+## 11. Citations
 
 - web3.py connection template provided by the course (`blockchain_client.py` is based on it).
-- Libraries / tools: web3.py, Flask, py-solc-x, pytest, Ganache, Docker.
-- AI assistance: Claude Code (Anthropic) helped draft the code, tests, Docker setup and README. I reviewed and ran them.
+- Libraries / tools: web3.py, Flask, py-solc-x, pytest, Ganache.
+- AI assistance: Claude Code (Anthropic) helped draft the code, tests and README. I reviewed and ran them.
